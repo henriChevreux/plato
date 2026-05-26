@@ -36,7 +36,7 @@ export function Layout({ children }) {
             </NavLink>
           ))}
         </nav>
-        <div className="mt-auto px-6 py-6 text-xs text-[#444]">
+        <div className="mt-auto px-6 py-6 text-xs text-subtle">
           consume wisely
         </div>
       </aside>

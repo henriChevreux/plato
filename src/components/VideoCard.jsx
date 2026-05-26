@@ -54,7 +54,7 @@ export function VideoCard({ video, onBlocked }) {
       onMouseLeave={() => setActionsVisible(false)}
     >
       <a href={url} target="_blank" rel="noopener noreferrer">
-        <div className="relative overflow-hidden aspect-video bg-[#0f0f0f]">
+        <div className="relative overflow-hidden aspect-video bg-subtle">
           {video.thumbnail ? (
             <img
               src={video.thumbnail}

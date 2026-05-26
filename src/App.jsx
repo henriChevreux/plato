@@ -6,6 +6,7 @@ import { Search } from './pages/Search'
 import { Saved } from './pages/Saved'
 import { Topics } from './pages/Topics'
 import { Settings } from './pages/Settings'
+import { useTheme } from './hooks/useTheme'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -13,21 +14,28 @@ const queryClient = new QueryClient({
   },
 })
 
+function ThemeProvider({ children }) {
+  useTheme()
+  return children
+}
+
 export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <BrowserRouter>
-        <Layout>
-          <Routes>
-            <Route path="/" element={<Feed />} />
-            <Route path="/search" element={<Search />} />
-            <Route path="/saved" element={<Saved />} />
-            <Route path="/topics" element={<Topics />} />
-            <Route path="/settings" element={<Settings />} />
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
-        </Layout>
-      </BrowserRouter>
+      <ThemeProvider>
+        <BrowserRouter>
+          <Layout>
+            <Routes>
+              <Route path="/" element={<Feed />} />
+              <Route path="/search" element={<Search />} />
+              <Route path="/saved" element={<Saved />} />
+              <Route path="/topics" element={<Topics />} />
+              <Route path="/settings" element={<Settings />} />
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
+          </Layout>
+        </BrowserRouter>
+      </ThemeProvider>
     </QueryClientProvider>
   )
 }

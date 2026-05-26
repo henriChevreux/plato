@@ -15,7 +15,7 @@ export function Banner() {
       <div
         className="absolute inset-0"
         style={{
-          background: 'linear-gradient(to bottom, rgba(10,10,10,0.1) 0%, rgba(10,10,10,0.5) 100%)',
+          background: 'var(--banner-gradient)',
         }}
       />
     </div>

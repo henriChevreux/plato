@@ -4,15 +4,16 @@ export default {
   theme: {
     extend: {
       colors: {
-        bg: '#0a0a0a',
-        surface: '#141414',
-        border: '#222222',
-        'border-hover': '#444444',
-        text: '#f0f0f0',
-        muted: '#888888',
-        accent: '#c9a84c',
-        'accent-dim': '#a07830',
-        error: '#c94c4c',
+        bg:             'var(--color-bg)',
+        surface:        'var(--color-surface)',
+        border:         'var(--color-border)',
+        'border-hover': 'var(--color-border-hover)',
+        text:           'var(--color-text)',
+        muted:          'var(--color-muted)',
+        subtle:         'var(--color-subtle)',
+        accent:         '#c9a84c',
+        'accent-dim':   '#a07830',
+        error:          '#c94c4c',
       },
       fontFamily: {
         sans: ['Inter', 'system-ui', 'sans-serif'],

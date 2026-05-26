@@ -6,6 +6,7 @@ const KEYS = {
   SLOP_THRESHOLD: 'plato_slop_threshold',
   MIN_DURATION: 'plato_min_duration',
   BANNER: 'plato_banner',
+  THEME: 'plato_theme',
 }
 
 export function getApiKey() {
@@ -58,6 +59,14 @@ export function setMinDuration(n) {
 }
 
 // null = use default /banner.jpg
+// 'light' | 'dark' | 'system'
+export function getTheme() {
+  return localStorage.getItem(KEYS.THEME) || 'system'
+}
+export function setTheme(t) {
+  localStorage.setItem(KEYS.THEME, t)
+}
+
 export function getBanner() {
   return localStorage.getItem(KEYS.BANNER) || null
 }

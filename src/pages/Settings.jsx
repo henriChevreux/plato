@@ -6,6 +6,7 @@ import { useRefreshFeed } from '../hooks/useFeed'
 import { SlopExplainer } from '../components/SlopExplainer'
 import { useMinDuration } from '../hooks/useMinDuration'
 import { useBanner, DEFAULT_BANNER } from '../hooks/useBanner'
+import { useTheme } from '../hooks/useTheme'
 
 const THRESHOLD_LABELS = {
   0: 'Off — show everything',
@@ -27,6 +28,7 @@ export function Settings() {
   const { blocklist, unblockChannel } = useBlocklist()
   const { minDuration, setMinDuration } = useMinDuration()
   const { bannerSrc, isCustom, uploadBanner, resetBanner } = useBanner()
+  const { theme, setTheme } = useTheme()
   const refresh = useRefreshFeed()
 
   const [keyInput, setKeyInput] = useState(apiKey)
@@ -118,6 +120,30 @@ export function Settings() {
         <SlopExplainer threshold={threshold} />
       </section>
 
+      {/* Theme */}
+      <section className="space-y-4">
+        <h2 className="text-xs text-muted uppercase tracking-widest">Theme</h2>
+        <div className="flex border border-border w-fit">
+          {[
+            { value: 'light',  label: 'Light'  },
+            { value: 'system', label: 'System' },
+            { value: 'dark',   label: 'Dark'   },
+          ].map(({ value, label }) => (
+            <button
+              key={value}
+              onClick={() => setTheme(value)}
+              className={`px-5 py-2 text-sm transition-colors border-r border-border last:border-r-0 ${
+                theme === value
+                  ? 'text-accent bg-surface'
+                  : 'text-muted hover:text-text'
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      </section>
+
       {/* Banner */}
       <section className="space-y-4">
         <h2 className="text-xs text-muted uppercase tracking-widest">Banner</h2>
@@ -129,7 +155,7 @@ export function Settings() {
           />
           <div
             className="absolute inset-0"
-            style={{ background: 'linear-gradient(to bottom, rgba(10,10,10,0.1) 0%, rgba(10,10,10,0.5) 100%)' }}
+            style={{ background: 'var(--banner-gradient)' }}
           />
         </div>
         <div className="flex items-center gap-3">
