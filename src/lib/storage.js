@@ -1,0 +1,67 @@
+const KEYS = {
+  API_KEY: 'plato_api_key',
+  TOPICS: 'plato_topics',
+  BLOCKLIST: 'plato_blocklist',
+  SAVED: 'plato_saved',
+  SLOP_THRESHOLD: 'plato_slop_threshold',
+  MIN_DURATION: 'plato_min_duration',
+  BANNER: 'plato_banner',
+}
+
+export function getApiKey() {
+  return localStorage.getItem(KEYS.API_KEY) || ''
+}
+export function setApiKey(key) {
+  localStorage.setItem(KEYS.API_KEY, key)
+}
+
+export function getTopics() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(KEYS.TOPICS)) || []
+    // Migrate from string[] to {name, level}[]
+    return raw.map((t) => (typeof t === 'string' ? { name: t, level: 'intermediate' } : t))
+  } catch { return [] }
+}
+export function setTopics(topics) {
+  localStorage.setItem(KEYS.TOPICS, JSON.stringify(topics))
+}
+
+export function getBlocklist() {
+  try { return JSON.parse(localStorage.getItem(KEYS.BLOCKLIST)) || [] } catch { return [] }
+}
+export function setBlocklist(list) {
+  localStorage.setItem(KEYS.BLOCKLIST, JSON.stringify(list))
+}
+
+export function getSaved() {
+  try { return JSON.parse(localStorage.getItem(KEYS.SAVED)) || [] } catch { return [] }
+}
+export function setSaved(videos) {
+  localStorage.setItem(KEYS.SAVED, JSON.stringify(videos))
+}
+
+export function getSlopThreshold() {
+  const val = localStorage.getItem(KEYS.SLOP_THRESHOLD)
+  return val !== null ? Number(val) : 4
+}
+export function setSlopThreshold(n) {
+  localStorage.setItem(KEYS.SLOP_THRESHOLD, String(n))
+}
+
+// stored in seconds; default 5 min
+export function getMinDuration() {
+  const val = localStorage.getItem(KEYS.MIN_DURATION)
+  return val !== null ? Number(val) : 300
+}
+export function setMinDuration(n) {
+  localStorage.setItem(KEYS.MIN_DURATION, String(n))
+}
+
+// null = use default /banner.jpg
+export function getBanner() {
+  return localStorage.getItem(KEYS.BANNER) || null
+}
+export function setBanner(dataUrl) {
+  if (dataUrl) localStorage.setItem(KEYS.BANNER, dataUrl)
+  else localStorage.removeItem(KEYS.BANNER)
+}
