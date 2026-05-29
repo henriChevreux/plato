@@ -7,6 +7,7 @@ import { SlopExplainer } from '../components/SlopExplainer'
 import { useMinDuration } from '../hooks/useMinDuration'
 import { useBanner, DEFAULT_BANNER } from '../hooks/useBanner'
 import { useTheme } from '../hooks/useTheme'
+import { useOllama } from '../hooks/useOllama'
 
 const THRESHOLD_LABELS = {
   0: 'Off — show everything',
@@ -29,7 +30,11 @@ export function Settings() {
   const { minDuration, setMinDuration } = useMinDuration()
   const { bannerSrc, isCustom, uploadBanner, resetBanner } = useBanner()
   const { theme, setTheme } = useTheme()
+  const { url: ollamaUrl, saveUrl: saveOllamaUrl, model: ollamaModel, saveModel: saveOllamaModel, aiEnabled, toggleAi, status: ollamaStatus } = useOllama()
   const refresh = useRefreshFeed()
+
+  const [ollamaUrlInput, setOllamaUrlInput] = useState(ollamaUrl)
+  const [ollamaModelInput, setOllamaModelInput] = useState(ollamaModel)
 
   const [keyInput, setKeyInput] = useState(apiKey)
   const [saved, setSaved] = useState(false)
@@ -241,6 +246,74 @@ export function Settings() {
           </div>
         </section>
       )}
+
+      {/* AI Re-ranking */}
+      <section className="space-y-4">
+        <div className="flex items-center gap-2">
+          <h2 className="text-xs text-muted uppercase tracking-widest">AI Re-ranking</h2>
+          <span
+            className={`w-2 h-2 rounded-full ${
+              ollamaStatus.available === null
+                ? 'bg-muted'
+                : ollamaStatus.available
+                ? 'bg-emerald-400'
+                : 'bg-red-400'
+            }`}
+          />
+        </div>
+        <p className="text-sm text-muted">
+          Re-ranks your feed using a local LLM via Ollama for better quality and proficiency fit.
+        </p>
+        <div className="space-y-3">
+          <div className="space-y-1">
+            <label className="text-xs text-muted">Ollama base URL</label>
+            <input
+              type="text"
+              value={ollamaUrlInput}
+              onChange={(e) => setOllamaUrlInput(e.target.value)}
+              onBlur={() => saveOllamaUrl(ollamaUrlInput)}
+              className="w-full bg-surface border border-border px-3 py-2 text-sm text-text placeholder:text-muted focus:outline-none focus:border-border-hover font-mono"
+            />
+          </div>
+          <div className="space-y-1">
+            <label className="text-xs text-muted">Model</label>
+            <input
+              type="text"
+              value={ollamaModelInput}
+              onChange={(e) => setOllamaModelInput(e.target.value)}
+              onBlur={() => saveOllamaModel(ollamaModelInput)}
+              placeholder="llama3.1:8b"
+              className="w-full bg-surface border border-border px-3 py-2 text-sm text-text placeholder:text-muted focus:outline-none focus:border-border-hover font-mono"
+            />
+          </div>
+          <label className="flex items-center gap-3 cursor-pointer select-none">
+            <div
+              onClick={() => toggleAi(!aiEnabled)}
+              className={`relative w-9 h-5 rounded-full transition-colors ${aiEnabled ? 'bg-accent' : 'bg-border'}`}
+            >
+              <span
+                className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-bg transition-transform ${aiEnabled ? 'translate-x-4' : 'translate-x-0'}`}
+              />
+            </div>
+            <span className="text-sm text-text">Enable AI re-ranking</span>
+          </label>
+        </div>
+        {ollamaStatus.available === false && (
+          <div className="text-xs text-muted space-y-1 border border-border px-3 py-2">
+            <p className="text-text">Ollama not detected. To enable:</p>
+            <ol className="list-decimal list-inside space-y-1">
+              <li>Install Ollama from <span className="font-mono">ollama.com</span></li>
+              <li><span className="font-mono">ollama pull llama3.1:8b</span></li>
+              <li><span className="font-mono">OLLAMA_ORIGINS=http://localhost:5173 ollama serve</span></li>
+            </ol>
+          </div>
+        )}
+        {ollamaStatus.available && ollamaStatus.models.length > 0 && (
+          <p className="text-xs text-muted">
+            Available models: {ollamaStatus.models.join(', ')}
+          </p>
+        )}
+      </section>
 
       {/* Quota info */}
       <section className="border-t border-border pt-6">

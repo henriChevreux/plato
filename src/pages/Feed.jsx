@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useFeed, useRefreshFeed } from '../hooks/useFeed'
 import { useTopics } from '../hooks/useTopics'
@@ -5,6 +6,7 @@ import { useApiKey } from '../hooks/useApiKey'
 import { useBlocklist } from '../hooks/useBlocklist'
 import { useSlopThreshold } from '../hooks/useSlopThreshold'
 import { useMinDuration } from '../hooks/useMinDuration'
+import { getAiRerankEnabled } from '../lib/storage'
 import { VideoCard } from '../components/VideoCard'
 import { EmptyState } from '../components/EmptyState'
 
@@ -69,7 +71,8 @@ export function Feed() {
   const { blocklist } = useBlocklist()
   const { threshold } = useSlopThreshold()
   const { minDuration } = useMinDuration()
-  const { data: sections, isLoading, isError, error, filteredCount } = useFeed(topics, apiKey, blocklist, threshold, minDuration)
+  const [aiEnabled] = useState(() => getAiRerankEnabled())
+  const { data: sections, isLoading, isError, error, filteredCount } = useFeed(topics, apiKey, blocklist, threshold, minDuration, aiEnabled)
   const refresh = useRefreshFeed()
   const navigate = useNavigate()
 
