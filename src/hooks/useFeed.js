@@ -58,6 +58,7 @@ export function useFeed(topics, apiKey, blocklist = [], threshold = 4, minDurati
   const [llmScores, setLlmScores] = useState({})
   const [progress, setProgress] = useState({ scored: 0, total: 0 })
   const hash = topicsHash(topics)
+  const level = topics.find((t) => t?.level && t.level !== 'intermediate')?.level || 'intermediate'
 
   // Clear LLM scores when topics change or feed data refreshes
   useEffect(() => {
@@ -69,32 +70,32 @@ export function useFeed(topics, apiKey, blocklist = [], threshold = 4, minDurati
   useEffect(() => {
     if (!query.data || !aiEnabled) return
 
-    const cachePrefix = `plato_llm_${hash}`
+    const cachePrefix = `plato_llm_${hash}_${level}`
     const fromCache = {}
-    const sectionsToScore = []
+    const needsScore = []
 
-    for (const { topic, videos } of query.data) {
-      const uncached = []
+    for (const { videos } of query.data) {
       for (const v of videos) {
         const cached = sessionStorage.getItem(`${cachePrefix}_${v.videoId}`)
         if (cached !== null) {
           fromCache[v.videoId] = Number(cached)
         } else {
-          uncached.push(v)
+          needsScore.push(v)
         }
       }
-      if (uncached.length > 0) sectionsToScore.push({ topic, videos: uncached })
     }
 
     if (Object.keys(fromCache).length > 0) {
       setLlmScores((prev) => ({ ...prev, ...fromCache }))
     }
 
-    if (sectionsToScore.length === 0) return
+    if (needsScore.length === 0) return
 
-    setProgress({ scored: 0, total: sectionsToScore.length })
+    setProgress({ scored: 0, total: needsScore.length })
 
-    rerank(sectionsToScore, {
+    rerank(needsScore, {
+      topics,
+      level,
       onProgress: ({ scored, total }) => setProgress({ scored, total }),
     }).then((results) => {
       if (!results) return
@@ -105,7 +106,7 @@ export function useFeed(topics, apiKey, blocklist = [], threshold = 4, minDurati
       }
       setLlmScores((prev) => ({ ...prev, ...fresh }))
     })
-  }, [query.data, aiEnabled, hash]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [query.data, aiEnabled, hash, level]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const blockSet = new Set(blocklist)
   const hasLlmScores = aiEnabled && Object.keys(llmScores).length > 0
