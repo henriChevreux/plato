@@ -126,18 +126,13 @@ export function useFeed(topics, apiKey, blocklist = [], threshold = 4, minDurati
 
       let sorted
       if (hasLlmScores) {
-        const maxStatic = Math.max(...clean.map((v) => v.score), 1)
         sorted = clean
-          .map((v) => {
-            const llm = llmScores[v.videoId] ?? null
-            const normalized = (v.score / maxStatic) * 100
-            return {
-              ...v,
-              llmScore: llm,
-              blendedScore: llm !== null ? 0.15 * normalized + 0.85 * llm : normalized,
-            }
+          .map((v) => ({ ...v, llmScore: llmScores[v.videoId] ?? null }))
+          .sort((a, b) => {
+            const aScore = a.llmScore ?? -1
+            const bScore = b.llmScore ?? -1
+            return bScore - aScore
           })
-          .sort((a, b) => b.blendedScore - a.blendedScore)
       } else {
         sorted = clean
       }
