@@ -72,6 +72,9 @@ export function Feed() {
   const { threshold } = useSlopThreshold()
   const { minDuration } = useMinDuration()
   const [aiEnabled] = useState(() => getAiRerankEnabled())
+  const { data: sections, isLoading, isError, error, filteredCount, aiStatus } = useFeed(topics, apiKey, blocklist, threshold, minDuration, aiEnabled)
+  const refresh = useRefreshFeed()
+
   const [elapsed, setElapsed] = useState(0)
   const timerRef = useRef(null)
 
@@ -84,8 +87,6 @@ export function Feed() {
     }
     return () => clearInterval(timerRef.current)
   }, [aiStatus])
-  const { data: sections, isLoading, isError, error, filteredCount, aiStatus } = useFeed(topics, apiKey, blocklist, threshold, minDuration, aiEnabled)
-  const refresh = useRefreshFeed()
   const navigate = useNavigate()
 
   if (!apiKey) {
