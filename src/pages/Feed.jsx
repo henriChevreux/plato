@@ -72,7 +72,7 @@ export function Feed() {
   const { threshold } = useSlopThreshold()
   const { minDuration } = useMinDuration()
   const [aiEnabled] = useState(() => getAiRerankEnabled())
-  const { data: sections, isLoading, isError, error, filteredCount, aiStatus } = useFeed(topics, apiKey, blocklist, threshold, minDuration, aiEnabled)
+  const { data: sections, isLoading, isError, error, filteredCount, aiStatus, progress } = useFeed(topics, apiKey, blocklist, threshold, minDuration, aiEnabled)
   const refresh = useRefreshFeed()
 
   const [elapsed, setElapsed] = useState(0)
@@ -135,7 +135,9 @@ export function Feed() {
             {filteredCount > 0 ? `${filteredCount} videos filtered` : 'curated feed'}
           </p>
           {aiStatus === 'scoring' && (
-            <span className="text-xs text-muted animate-pulse">AI scoring… {elapsed}s</span>
+            <span className="text-xs text-muted animate-pulse">
+              AI scoring… {progress.total > 0 ? `${progress.scored}/${progress.total}` : `${elapsed}s`}
+            </span>
           )}
           {aiStatus === 'done' && (
             <span className="text-xs text-accent">AI scoring done</span>
@@ -149,6 +151,15 @@ export function Feed() {
           {isLoading ? 'loading...' : 'refresh'}
         </button>
       </div>
+
+      {aiStatus === 'scoring' && progress.total > 0 && (
+        <div className="w-full h-px bg-border -mt-8 mb-8">
+          <div
+            className="h-full bg-accent transition-all duration-300"
+            style={{ width: `${(progress.scored / progress.total) * 100}%` }}
+          />
+        </div>
+      )}
 
       {isError && (
         <div className="mb-8 px-4 py-3 border border-error text-error text-sm">

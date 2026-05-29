@@ -56,6 +56,7 @@ export function useFeed(topics, apiKey, blocklist = [], threshold = 4, minDurati
   })
 
   const [llmScores, setLlmScores] = useState({})
+  const [progress, setProgress] = useState({ scored: 0, total: 0 })
   const hash = topicsHash(topics)
   const level = topics.find((t) => t?.level && t.level !== 'intermediate')?.level || 'intermediate'
 
@@ -89,7 +90,9 @@ export function useFeed(topics, apiKey, blocklist = [], threshold = 4, minDurati
 
     if (needsScore.length === 0) return
 
-    rerank(needsScore, { topics, level }).then((results) => {
+    setProgress({ scored: 0, total: needsScore.length })
+
+    rerank(needsScore, { topics, level, onProgress: (p) => setProgress(p) }).then((results) => {
       if (!results) return
       const fresh = {}
       for (const r of results) {
@@ -143,7 +146,7 @@ export function useFeed(topics, apiKey, blocklist = [], threshold = 4, minDurati
     aiStatus = hasLlmScores ? 'done' : 'scoring'
   }
 
-  return { ...query, data: sections, filteredCount, aiStatus }
+  return { ...query, data: sections, filteredCount, aiStatus, progress }
 }
 
 export function useRefreshFeed() {
