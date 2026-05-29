@@ -1,6 +1,8 @@
+import { useState, useEffect } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { searchByTopic } from '../lib/youtube'
 import { scoreVideo } from '../lib/scoring'
+import { rerank } from '../lib/reranker'
 
 function topicsHash(topics) {
   return topics
@@ -16,19 +18,16 @@ async function fetchFeed(topics, apiKey, minDuration) {
   if (cached) {
     try {
       const parsed = JSON.parse(cached)
-      // Validate shape: must be array of {topic, videos}
       if (Array.isArray(parsed) && (parsed.length === 0 || ('topic' in parsed[0] && 'videos' in parsed[0]))) {
         return parsed
       }
     } catch { /* fall through */ }
   }
 
-  // Fetch all topics in parallel, keep them grouped
   const batches = await Promise.all(
     topics.map((topic) => searchByTopic(topic, apiKey, 1, minDuration))
   )
 
-  // Deduplicate globally — each video appears in the first topic it was found under
   const seen = new Set()
   const sections = topics.map((topic, i) => {
     const videos = []
@@ -47,7 +46,7 @@ async function fetchFeed(topics, apiKey, minDuration) {
   return sections
 }
 
-export function useFeed(topics, apiKey, blocklist = [], threshold = 4, minDuration = 0) {
+export function useFeed(topics, apiKey, blocklist = [], threshold = 4, minDuration = 0, aiEnabled = false) {
   const query = useQuery({
     queryKey: ['feed', topicsHash(topics), minDuration],
     queryFn: () => fetchFeed(topics, apiKey, minDuration),
@@ -56,7 +55,53 @@ export function useFeed(topics, apiKey, blocklist = [], threshold = 4, minDurati
     retry: 1,
   })
 
+  const [llmScores, setLlmScores] = useState({})
+  const hash = topicsHash(topics)
+  const level = topics.find((t) => t?.level && t.level !== 'intermediate')?.level || 'intermediate'
+
+  // Clear cached LLM scores when topics change
+  useEffect(() => {
+    setLlmScores({})
+  }, [hash])
+
+  // Run async re-rank pass when feed data arrives and AI is enabled
+  useEffect(() => {
+    if (!query.data || !aiEnabled) return
+
+    const cachePrefix = `plato_llm_${hash}_${level}`
+    const fromCache = {}
+    const needsScore = []
+
+    for (const { videos } of query.data) {
+      for (const v of videos) {
+        const cached = sessionStorage.getItem(`${cachePrefix}_${v.videoId}`)
+        if (cached !== null) {
+          fromCache[v.videoId] = Number(cached)
+        } else {
+          needsScore.push(v)
+        }
+      }
+    }
+
+    if (Object.keys(fromCache).length > 0) {
+      setLlmScores((prev) => ({ ...prev, ...fromCache }))
+    }
+
+    if (needsScore.length === 0) return
+
+    rerank(needsScore, { topics, level }).then((results) => {
+      if (!results) return
+      const fresh = {}
+      for (const r of results) {
+        fresh[r.videoId] = r.score
+        sessionStorage.setItem(`${cachePrefix}_${r.videoId}`, String(r.score))
+      }
+      setLlmScores((prev) => ({ ...prev, ...fresh }))
+    })
+  }, [query.data, aiEnabled, hash, level]) // eslint-disable-line react-hooks/exhaustive-deps
+
   const blockSet = new Set(blocklist)
+  const hasLlmScores = aiEnabled && Object.keys(llmScores).length > 0
 
   let sections = null
   let filteredCount = 0
@@ -67,10 +112,29 @@ export function useFeed(topics, apiKey, blocklist = [], threshold = 4, minDurati
         (v) =>
           v.slopScore < threshold &&
           !blockSet.has(v.channelTitle) &&
-          (minDuration === 0 || v.durationSeconds === null || v.durationSeconds >= minDuration) // fine-grained trim within bucket
+          (minDuration === 0 || v.durationSeconds === null || v.durationSeconds >= minDuration)
       )
       filteredCount += videos.length - clean.length
-      return { topic, videos: clean }
+
+      let sorted
+      if (hasLlmScores) {
+        const maxStatic = Math.max(...clean.map((v) => v.score), 1)
+        sorted = clean
+          .map((v) => {
+            const llm = llmScores[v.videoId] ?? null
+            const normalized = (v.score / maxStatic) * 100
+            return {
+              ...v,
+              llmScore: llm,
+              blendedScore: llm !== null ? 0.4 * normalized + 0.6 * llm : normalized,
+            }
+          })
+          .sort((a, b) => b.blendedScore - a.blendedScore)
+      } else {
+        sorted = clean
+      }
+
+      return { topic, videos: sorted }
     }).filter((s) => s.videos.length > 0)
   }
 
@@ -81,7 +145,9 @@ export function useRefreshFeed() {
   const client = useQueryClient()
   return () => {
     for (const key of Object.keys(sessionStorage)) {
-      if (key.startsWith('plato_feed')) sessionStorage.removeItem(key)
+      if (key.startsWith('plato_feed') || key.startsWith('plato_llm')) {
+        sessionStorage.removeItem(key)
+      }
     }
     client.invalidateQueries({ queryKey: ['feed'] })
   }
