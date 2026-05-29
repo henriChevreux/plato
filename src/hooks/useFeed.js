@@ -1,7 +1,6 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { searchByTopic } from '../lib/youtube'
 import { scoreVideo } from '../lib/scoring'
-import { slopScore } from '../lib/slop'
 
 function topicsHash(topics) {
   return topics
@@ -36,11 +35,8 @@ async function fetchFeed(topics, apiKey, minDuration) {
     for (const video of batches[i]) {
       if (!seen.has(video.videoId)) {
         seen.add(video.videoId)
-        videos.push({
-          ...video,
-          score: scoreVideo(video, [topic]),
-          slopScore: slopScore(video),
-        })
+        const { score, features } = scoreVideo(video, [topic])
+        videos.push({ ...video, score, features, slopScore: features.slopScore })
       }
     }
     videos.sort((a, b) => b.score - a.score)

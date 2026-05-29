@@ -1,3 +1,5 @@
+import { slopScore as computeSlopScore } from './slop'
+
 function tokenize(text) {
   return text.toLowerCase().replace(/[^a-z0-9\s]/g, ' ').split(/\s+/).filter(Boolean)
 }
@@ -47,17 +49,41 @@ function levelBonus(video, level) {
 }
 
 // topics can be {name, level}[] or string[]
+// Returns { score, features } where score is the scalar used for ranking
+// and features is a structured breakdown consumed by the LLM reranker and Phase 3 preference model.
 export function scoreVideo(video, topics) {
-  let total = 0
+  let titleScore = 0
+  let channelScore = 0
+  let descScore = 0
+  let levelBonusTotal = 0
+
   for (const topic of topics) {
     const name = typeof topic === 'string' ? topic : topic.name
     const level = typeof topic === 'string' ? 'intermediate' : (topic.level || 'intermediate')
     const tokens = tokenize(name)
     if (tokens.length === 0) continue
-    const titleScore = scoreField(video.title, tokens) * 3
-    const descScore = scoreField(video.description, tokens)
-    const channelScore = scoreField(video.channelTitle, tokens) * 2
-    total += titleScore + descScore + channelScore + levelBonus(video, level)
+    titleScore += scoreField(video.title, tokens) * 3
+    channelScore += scoreField(video.channelTitle, tokens) * 2
+    descScore += scoreField(video.description, tokens)
+    levelBonusTotal += levelBonus(video, level)
   }
-  return total
+
+  const score = titleScore + channelScore + descScore + levelBonusTotal
+  const sl = computeSlopScore(video)
+  const ageDays = video.publishedAt
+    ? Math.floor((Date.now() - new Date(video.publishedAt).getTime()) / 86400000)
+    : null
+
+  return {
+    score,
+    features: {
+      titleScore,
+      channelScore,
+      descScore,
+      levelBonus: levelBonusTotal,
+      slopScore: sl,
+      durationSeconds: video.durationSeconds ?? null,
+      ageDays,
+    },
+  }
 }
