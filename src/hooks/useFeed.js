@@ -70,7 +70,7 @@ export function useFeed(topics, apiKey, blocklist = [], threshold = 4, minDurati
   useEffect(() => {
     if (!query.data || !aiEnabled) return
 
-    const cachePrefix = `plato_llm_${hash}_${level}`
+    const cachePrefix = `plato_llm_v2_${hash}_${level}`
     const fromCache = {}
     const needsScore = []
 
@@ -134,7 +134,7 @@ export function useFeed(topics, apiKey, blocklist = [], threshold = 4, minDurati
             return {
               ...v,
               llmScore: llm,
-              blendedScore: llm !== null ? 0.4 * normalized + 0.6 * llm : normalized,
+              blendedScore: llm !== null ? 0.15 * normalized + 0.85 * llm : normalized,
             }
           })
           .sort((a, b) => b.blendedScore - a.blendedScore)
