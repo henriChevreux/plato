@@ -92,14 +92,16 @@ export function useFeed(topics, apiKey, blocklist = [], threshold = 4, minDurati
 
     setProgress({ scored: 0, total: needsScore.length })
 
-    rerank(needsScore, { topics, level, onProgress: (p) => setProgress(p) }).then((results) => {
-      if (!results) return
-      const fresh = {}
-      for (const r of results) {
-        fresh[r.videoId] = r.score
-        sessionStorage.setItem(`${cachePrefix}_${r.videoId}`, String(r.score))
-      }
-      setLlmScores((prev) => ({ ...prev, ...fresh }))
+    rerank(needsScore, {
+      topics,
+      level,
+      onProgress: ({ scored, total, result }) => {
+        setProgress({ scored, total })
+        if (result) {
+          sessionStorage.setItem(`${cachePrefix}_${result.videoId}`, String(result.score))
+          setLlmScores((prev) => ({ ...prev, [result.videoId]: result.score }))
+        }
+      },
     })
   }, [query.data, aiEnabled, hash, level]) // eslint-disable-line react-hooks/exhaustive-deps
 

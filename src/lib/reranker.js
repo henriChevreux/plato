@@ -1,7 +1,5 @@
 import { chat, isAvailable } from './ollama'
 
-const CONCURRENCY = 5
-
 async function scoreOne(video, { topicNames, level, graphSummary }) {
   const prompt = [
     `You are a learning content curator. Score this video for a ${level} learner studying: ${topicNames}.`,
@@ -32,16 +30,11 @@ export async function rerank(videos, { topics = [], level = 'intermediate', grap
   let scored = 0
   const results = []
 
-  for (let i = 0; i < videos.length; i += CONCURRENCY) {
-    const batch = videos.slice(i, i + CONCURRENCY)
-    const batchResults = await Promise.all(
-      batch.map((v) => scoreOne(v, { topicNames, level, graphSummary }))
-    )
-    for (const r of batchResults) {
-      if (r) results.push(r)
-      scored++
-      onProgress?.({ scored, total })
-    }
+  for (const video of videos) {
+    const result = await scoreOne(video, { topicNames, level, graphSummary })
+    scored++
+    if (result) results.push(result)
+    onProgress?.({ scored, total, result })
   }
 
   return results.length > 0 ? results : null
