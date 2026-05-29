@@ -7,6 +7,9 @@ const KEYS = {
   MIN_DURATION: 'plato_min_duration',
   BANNER: 'plato_banner',
   THEME: 'plato_theme',
+  OLLAMA_URL: 'plato_ollama_url',
+  OLLAMA_MODEL: 'plato_ollama_model',
+  AI_RERANK_ENABLED: 'plato_ai_rerank',
 }
 
 export function getApiKey() {
@@ -73,4 +76,25 @@ export function getBanner() {
 export function setBanner(dataUrl) {
   if (dataUrl) localStorage.setItem(KEYS.BANNER, dataUrl)
   else localStorage.removeItem(KEYS.BANNER)
+}
+
+export function getOllamaUrl() {
+  return localStorage.getItem(KEYS.OLLAMA_URL) || 'http://localhost:11434'
+}
+export function setOllamaUrl(url) {
+  localStorage.setItem(KEYS.OLLAMA_URL, url)
+}
+
+export function getOllamaModel() {
+  return localStorage.getItem(KEYS.OLLAMA_MODEL) || 'llama3.1:8b'
+}
+export function setOllamaModel(m) {
+  localStorage.setItem(KEYS.OLLAMA_MODEL, m)
+}
+
+export function getAiRerankEnabled() {
+  return localStorage.getItem(KEYS.AI_RERANK_ENABLED) === 'true'
+}
+export function setAiRerankEnabled(v) {
+  localStorage.setItem(KEYS.AI_RERANK_ENABLED, String(v))
 }
