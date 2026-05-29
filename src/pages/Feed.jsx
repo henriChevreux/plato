@@ -72,7 +72,7 @@ export function Feed() {
   const { threshold } = useSlopThreshold()
   const { minDuration } = useMinDuration()
   const [aiEnabled] = useState(() => getAiRerankEnabled())
-  const { data: sections, isLoading, isError, error, filteredCount } = useFeed(topics, apiKey, blocklist, threshold, minDuration, aiEnabled)
+  const { data: sections, isLoading, isError, error, filteredCount, aiStatus } = useFeed(topics, apiKey, blocklist, threshold, minDuration, aiEnabled)
   const refresh = useRefreshFeed()
   const navigate = useNavigate()
 
@@ -117,9 +117,17 @@ export function Feed() {
   return (
     <div className="p-8">
       <div className="flex items-center justify-between mb-10">
-        <p className="text-xs text-muted">
-          {filteredCount > 0 ? `${filteredCount} videos filtered` : 'curated feed'}
-        </p>
+        <div className="flex items-center gap-3">
+          <p className="text-xs text-muted">
+            {filteredCount > 0 ? `${filteredCount} videos filtered` : 'curated feed'}
+          </p>
+          {aiStatus === 'scoring' && (
+            <span className="text-xs text-muted animate-pulse">AI scoring…</span>
+          )}
+          {aiStatus === 'done' && (
+            <span className="text-xs text-accent">AI scoring done</span>
+          )}
+        </div>
         <button
           onClick={refresh}
           disabled={isLoading}

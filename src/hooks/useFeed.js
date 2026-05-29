@@ -138,7 +138,12 @@ export function useFeed(topics, apiKey, blocklist = [], threshold = 4, minDurati
     }).filter((s) => s.videos.length > 0)
   }
 
-  return { ...query, data: sections, filteredCount }
+  let aiStatus = 'idle'
+  if (aiEnabled && query.data) {
+    aiStatus = hasLlmScores ? 'done' : 'scoring'
+  }
+
+  return { ...query, data: sections, filteredCount, aiStatus }
 }
 
 export function useRefreshFeed() {
