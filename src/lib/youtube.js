@@ -46,7 +46,7 @@ async function fetchPage(query, apiKey, pageToken, videoDuration) {
     part: 'snippet',
     q: query,
     type: 'video',
-    maxResults: '20',
+    maxResults: '10',
     order: 'relevance',
     key: apiKey,
     ...(pageToken ? { pageToken } : {}),

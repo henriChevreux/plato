@@ -13,7 +13,7 @@ function topicsHash(topics) {
 }
 
 async function fetchFeed(topics, apiKey, minDuration) {
-  const cacheKey = `plato_feed_v2_${topicsHash(topics)}_d${minDuration}`
+  const cacheKey = `plato_feed_v3_${topicsHash(topics)}_d${minDuration}`
   const cached = sessionStorage.getItem(cacheKey)
   if (cached) {
     try {
