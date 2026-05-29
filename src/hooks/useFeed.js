@@ -60,10 +60,11 @@ export function useFeed(topics, apiKey, blocklist = [], threshold = 4, minDurati
   const hash = topicsHash(topics)
   const level = topics.find((t) => t?.level && t.level !== 'intermediate')?.level || 'intermediate'
 
-  // Clear cached LLM scores when topics change
+  // Clear LLM scores when topics change or feed data refreshes
   useEffect(() => {
     setLlmScores({})
-  }, [hash])
+    setProgress({ scored: 0, total: 0 })
+  }, [hash, query.dataUpdatedAt])
 
   // Run async re-rank pass when feed data arrives and AI is enabled
   useEffect(() => {
@@ -95,13 +96,15 @@ export function useFeed(topics, apiKey, blocklist = [], threshold = 4, minDurati
     rerank(needsScore, {
       topics,
       level,
-      onProgress: ({ scored, total, result }) => {
-        setProgress({ scored, total })
-        if (result) {
-          sessionStorage.setItem(`${cachePrefix}_${result.videoId}`, String(result.score))
-          setLlmScores((prev) => ({ ...prev, [result.videoId]: result.score }))
-        }
-      },
+      onProgress: ({ scored, total }) => setProgress({ scored, total }),
+    }).then((results) => {
+      if (!results) return
+      const fresh = {}
+      for (const r of results) {
+        fresh[r.videoId] = r.score
+        sessionStorage.setItem(`${cachePrefix}_${r.videoId}`, String(r.score))
+      }
+      setLlmScores((prev) => ({ ...prev, ...fresh }))
     })
   }, [query.data, aiEnabled, hash, level]) // eslint-disable-line react-hooks/exhaustive-deps
 
