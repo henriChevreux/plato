@@ -110,8 +110,10 @@ export async function searchByTopic(topic, apiKey, pages = 1, minDurationSeconds
       if (!seen.has(video.videoId)) {
         seen.add(video.videoId)
         results.push(video)
+        if (results.length === 10) break
       }
     }
+    if (results.length === 10) break
   }
 
   const ids = results.map((v) => v.videoId)
