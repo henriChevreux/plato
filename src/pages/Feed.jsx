@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useFeed, useRefreshFeed } from '../hooks/useFeed'
 import { useTopics } from '../hooks/useTopics'
@@ -72,6 +72,18 @@ export function Feed() {
   const { threshold } = useSlopThreshold()
   const { minDuration } = useMinDuration()
   const [aiEnabled] = useState(() => getAiRerankEnabled())
+  const [elapsed, setElapsed] = useState(0)
+  const timerRef = useRef(null)
+
+  useEffect(() => {
+    if (aiStatus === 'scoring') {
+      setElapsed(0)
+      timerRef.current = setInterval(() => setElapsed((s) => s + 1), 1000)
+    } else {
+      clearInterval(timerRef.current)
+    }
+    return () => clearInterval(timerRef.current)
+  }, [aiStatus])
   const { data: sections, isLoading, isError, error, filteredCount, aiStatus } = useFeed(topics, apiKey, blocklist, threshold, minDuration, aiEnabled)
   const refresh = useRefreshFeed()
   const navigate = useNavigate()
@@ -122,7 +134,7 @@ export function Feed() {
             {filteredCount > 0 ? `${filteredCount} videos filtered` : 'curated feed'}
           </p>
           {aiStatus === 'scoring' && (
-            <span className="text-xs text-muted animate-pulse">AI scoring…</span>
+            <span className="text-xs text-muted animate-pulse">AI scoring… {elapsed}s</span>
           )}
           {aiStatus === 'done' && (
             <span className="text-xs text-accent">AI scoring done</span>
