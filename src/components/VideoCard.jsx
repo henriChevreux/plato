@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useSaved } from '../hooks/useSaved'
 import { useBlocklist } from '../hooks/useBlocklist'
 import { slopLabel } from '../lib/slop'
@@ -22,6 +23,7 @@ const qualityDot = {
 }
 
 export function VideoCard({ video, onBlocked }) {
+  const navigate = useNavigate()
   const { isSaved, saveVideo, unsaveVideo } = useSaved()
   const { blockChannel } = useBlocklist()
   const [actionsVisible, setActionsVisible] = useState(false)
@@ -31,7 +33,6 @@ export function VideoCard({ video, onBlocked }) {
 
   const saved = isSaved(video.videoId)
   const label = slopLabel(video.slopScore ?? 0)
-  const url = `https://www.youtube.com/watch?v=${video.videoId}`
 
   function handleBlock(e) {
     e.preventDefault()
@@ -53,7 +54,10 @@ export function VideoCard({ video, onBlocked }) {
       onMouseEnter={() => setActionsVisible(true)}
       onMouseLeave={() => setActionsVisible(false)}
     >
-      <a href={url} target="_blank" rel="noopener noreferrer">
+      <div
+        className="cursor-pointer"
+        onClick={() => navigate(`/watch/${video.videoId}`, { state: { video } })}
+      >
         <div className="relative overflow-hidden aspect-video bg-subtle">
           {video.thumbnail ? (
             <img
@@ -91,7 +95,7 @@ export function VideoCard({ video, onBlocked }) {
             <p className="text-xs text-muted shrink-0 ml-2">{timeAgo(video.publishedAt)}</p>
           </div>
         </div>
-      </a>
+      </div>
 
       {/* hover action bar */}
       <div
