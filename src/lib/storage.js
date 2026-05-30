@@ -115,6 +115,9 @@ export function recordWatch(entry) {
   filtered.unshift({ ...entry, watchedAt: new Date().toISOString() })
   setWatchHistory(filtered.slice(0, 500))
 }
+export function clearWatchHistory() {
+  localStorage.removeItem(KEYS.WATCH_HISTORY)
+}
 
 // Connected vault display name (the handle itself lives in IndexedDB via idb.js)
 export function getVaultName() {

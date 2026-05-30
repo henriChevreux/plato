@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useVault } from '../hooks/useVault'
 import { useTopics } from '../hooks/useTopics'
@@ -20,9 +20,15 @@ export function Knowledge() {
   const [topicNames, setTopicNames] = useState([])
   const [selected, setSelected] = useState(null)
   const [graph, setGraph] = useState(null)
-  const [loading, setLoading] = useState(false)
+  const [loadingGraph, setLoadingGraph] = useState(false)
   const [frontier, setFrontier] = useState(null)
   const [frontierLoading, setFrontierLoading] = useState(false)
+  const frontierCache = useRef({}) // topic -> suggestions[] (cached for the session)
+
+  const topicLevel = useCallback((n) => {
+    const t = topics.find((t) => (typeof t === 'string' ? t : t.name) === n)
+    return typeof t === 'string' ? 'intermediate' : (t?.level || 'intermediate')
+  }, [topics])
 
   // Determine available topics: those in the vault, falling back to app topics.
   useEffect(() => {
@@ -35,33 +41,34 @@ export function Knowledge() {
     })
   }, [status, topics])
 
-  const loadTopic = useCallback(async (topic) => {
-    setSelected(topic)
-    setGraph(null)
-    setFrontier(null)
-    setLoading(true)
-    const g = await loadGraph(topic)
-    setGraph(g)
-    setLoading(false)
-  }, [])
-
-  useEffect(() => {
-    if (selected && status === 'granted') loadTopic(selected)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [status])
-
-  const topicLevel = (name) => {
-    const t = topics.find((t) => (typeof t === 'string' ? t : t.name) === name)
-    return typeof t === 'string' ? 'intermediate' : (t?.level || 'intermediate')
-  }
-
-  async function handleSuggest() {
-    if (!selected) return
+  const loadFrontier = useCallback(async (topic, g, force = false) => {
+    if (!topic) return
+    if (!force && frontierCache.current[topic] !== undefined) {
+      setFrontier(frontierCache.current[topic])
+      return
+    }
     setFrontierLoading(true)
-    const next = await suggestNext(selected, topicLevel(selected), graph)
+    const next = await suggestNext(topic, topicLevel(topic), g)
+    frontierCache.current[topic] = next
     setFrontier(next)
     setFrontierLoading(false)
-  }
+  }, [topicLevel])
+
+  // Load the graph (and then frontier suggestions) whenever the selection changes.
+  useEffect(() => {
+    if (status !== 'granted' || !selected) return
+    let cancelled = false
+    setGraph(null)
+    setLoadingGraph(true)
+    setFrontier(frontierCache.current[selected] ?? null)
+    loadGraph(selected).then((g) => {
+      if (cancelled) return
+      setGraph(g)
+      setLoadingGraph(false)
+      loadFrontier(selected, g, false)
+    })
+    return () => { cancelled = true }
+  }, [selected, status, loadFrontier])
 
   function findVideos(query) {
     navigate(`/search?q=${encodeURIComponent(query)}`)
@@ -122,7 +129,7 @@ export function Knowledge() {
           {topicNames.map((t) => (
             <button
               key={t}
-              onClick={() => loadTopic(t)}
+              onClick={() => setSelected(t)}
               className={`px-3 py-1.5 text-sm border transition-colors capitalize ${
                 selected === t
                   ? 'border-accent text-accent'
@@ -138,7 +145,7 @@ export function Knowledge() {
       )}
 
       {/* Known concepts */}
-      {loading ? (
+      {loadingGraph ? (
         <p className="text-sm text-muted animate-pulse">Loading graph…</p>
       ) : selected ? (
         <section className="space-y-4">
@@ -175,35 +182,38 @@ export function Knowledge() {
       ) : null}
 
       {/* Frontier suggestions */}
-      {selected && (
+      {selected && !loadingGraph && (
         <section className="space-y-4">
           <div className="flex items-center justify-between">
             <h2 className="text-xs text-muted uppercase tracking-widest">What to learn next</h2>
             <button
-              onClick={handleSuggest}
+              onClick={() => loadFrontier(selected, graph, true)}
               disabled={frontierLoading}
               className="text-xs text-accent hover:underline disabled:opacity-40"
             >
-              {frontierLoading ? 'thinking…' : frontier ? 'regenerate' : 'suggest next concepts'}
+              {frontierLoading ? 'thinking…' : 'regenerate'}
             </button>
           </div>
-          {frontier && frontier.length === 0 && (
-            <p className="text-sm text-muted">No suggestions (is Ollama running?).</p>
+          {frontierLoading && !frontier && (
+            <p className="text-sm text-muted animate-pulse">Asking the model for next concepts…</p>
+          )}
+          {frontier && frontier.length === 0 && !frontierLoading && (
+            <p className="text-sm text-muted">No suggestions — make sure Ollama is running.</p>
           )}
           {frontier && frontier.length > 0 && (
             <div className="space-y-2">
               {frontier.map((s) => (
-                <div key={s.concept} className="border border-border px-3 py-2">
-                  <div className="flex items-center justify-between gap-2">
+                <div key={s.concept} className="border border-border px-3 py-2 flex items-start justify-between gap-3">
+                  <div className="min-w-0">
                     <span className="text-sm text-text">{s.concept}</span>
-                    <button
-                      onClick={() => findVideos(s.query)}
-                      className="text-xs text-accent hover:underline shrink-0"
-                    >
-                      Find videos →
-                    </button>
+                    {s.why && <p className="text-xs text-muted mt-1">{s.why}</p>}
                   </div>
-                  {s.why && <p className="text-xs text-muted mt-1">{s.why}</p>}
+                  <button
+                    onClick={() => findVideos(s.query)}
+                    className="shrink-0 px-3 py-1.5 border border-accent text-accent text-xs hover:bg-accent hover:text-bg transition-colors"
+                  >
+                    Search videos →
+                  </button>
                 </div>
               ))}
             </div>

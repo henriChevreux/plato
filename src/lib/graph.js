@@ -58,6 +58,15 @@ function extractSummary(md) {
   return ''
 }
 
+// Read the concepts extracted for a single watched video from its vault note.
+// Returns string[] of concept names, or null if the note doesn't exist.
+export async function loadVideoConcepts(videoId) {
+  const md = await readNote([PLATO_DIR, 'Videos'], `${videoId}.md`)
+  if (!md) return null
+  // Video notes link concepts + the topic MOC (prefixed "_"); keep only concepts.
+  return parseLinks(md).filter((l) => !l.startsWith('_'))
+}
+
 // Compact string of known concepts for prompt injection.
 export async function summarizeKnown(topic) {
   const { concepts } = await loadGraph(topic)

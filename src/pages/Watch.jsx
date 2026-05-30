@@ -1,53 +1,83 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, useCallback } from 'react'
 import { useParams, useLocation, useNavigate } from 'react-router-dom'
 import { recordWatch } from '../lib/storage'
 import { vaultPermission } from '../lib/vault'
 import { extractConcepts, writeConceptNotes } from '../lib/concepts'
+import { useTopics } from '../hooks/useTopics'
 
 export function Watch() {
   const { videoId } = useParams()
   const { state } = useLocation()
   const navigate = useNavigate()
   const video = state?.video
-  const topic = state?.topic
-  const level = state?.level || 'intermediate'
+  const navTopic = typeof state?.topic === 'string' ? state.topic : state?.topic?.name
+  const navLevel = state?.level || 'intermediate'
 
+  const { topics } = useTopics()
+
+  const [assignedTopic, setAssignedTopic] = useState(navTopic || '')
   // 'idle' | 'syncing' | 'done' | 'error' | 'skipped'
   const [syncStatus, setSyncStatus] = useState('idle')
-  const ranFor = useRef(null)
+  const recordedFor = useRef(null)
+  const syncedKey = useRef(null)
 
-  useEffect(() => {
-    // Dedupe so we only sync a given video once (also guards React StrictMode's
-    // double-mount in dev). We intentionally do NOT abort the sync on unmount —
-    // it's a background write, and setState on an unmounted component is a no-op.
-    if (!videoId || ranFor.current === videoId) return
-    ranFor.current = videoId
+  const levelForTopic = useCallback(
+    (name) => topics.find((t) => t.name === name)?.level || navLevel,
+    [topics, navLevel]
+  )
 
-    const topicName = typeof topic === 'string' ? topic : topic?.name
+  // File the video under a topic: record the watch + extract/write concept notes.
+  const syncToTopic = useCallback(async (topicName) => {
+    if (!video || !topicName) return
+    const key = `${videoId}|${topicName}`
+    if (syncedKey.current === key) return
+    syncedKey.current = key
+
+    const level = levelForTopic(topicName)
     recordWatch({
       videoId,
-      title: video?.title || '',
-      channelTitle: video?.channelTitle || '',
-      topic: topicName || '',
+      title: video.title || '',
+      channelTitle: video.channelTitle || '',
+      topic: topicName,
       level,
     })
 
-    if (!video || !topicName) return
+    const perm = await vaultPermission()
+    if (perm !== 'granted') { setSyncStatus('skipped'); return }
+    setSyncStatus('syncing')
+    try {
+      const concepts = await extractConcepts(video, { topic: topicName })
+      if (concepts.length === 0) { setSyncStatus('error'); return }
+      await writeConceptNotes(topicName, level, video, concepts)
+      setSyncStatus('done')
+    } catch {
+      setSyncStatus('error')
+    }
+  }, [video, videoId, levelForTopic])
 
-    ;(async () => {
-      const perm = await vaultPermission()
-      if (perm !== 'granted') { setSyncStatus('skipped'); return }
-      setSyncStatus('syncing')
-      try {
-        const concepts = await extractConcepts(video, { topic: topicName })
-        if (concepts.length === 0) { setSyncStatus('error'); return }
-        await writeConceptNotes(topicName, level, video, concepts)
-        setSyncStatus('done')
-      } catch {
-        setSyncStatus('error')
-      }
-    })()
-  }, [videoId, video, topic, level])
+  // On mount: log the watch. If it already has a topic (came from the Feed),
+  // auto-sync; otherwise just record it topic-less until the user assigns one.
+  useEffect(() => {
+    if (!videoId || recordedFor.current === videoId) return
+    recordedFor.current = videoId
+    if (video && navTopic) {
+      syncToTopic(navTopic)
+    } else {
+      recordWatch({
+        videoId,
+        title: video?.title || '',
+        channelTitle: video?.channelTitle || '',
+        topic: '',
+        level: navLevel,
+      })
+    }
+  }, [videoId, video, navTopic, navLevel, syncToTopic])
+
+  function handlePick(e) {
+    const name = e.target.value
+    setAssignedTopic(name)
+    if (name) syncToTopic(name)
+  }
 
   return (
     <div className="p-6">
@@ -69,7 +99,7 @@ export function Watch() {
       </div>
 
       {video && (
-        <div className="mt-6 space-y-3">
+        <div className="mt-6 space-y-4">
           <h1 className="text-lg font-medium text-text leading-snug">{video.title}</h1>
           <div className="flex items-center gap-2 text-sm text-muted flex-wrap">
             <span>{video.channelTitle}</span>
@@ -85,17 +115,44 @@ export function Watch() {
                 <span>{video.duration}</span>
               </>
             )}
-            {syncStatus !== 'idle' && syncStatus !== 'skipped' && (
-              <>
-                <span>·</span>
-                <span className={syncStatus === 'error' ? 'text-red-400' : 'text-accent'}>
-                  {syncStatus === 'syncing' && '◌ syncing to Obsidian…'}
-                  {syncStatus === 'done' && '✓ added to knowledge graph'}
-                  {syncStatus === 'error' && 'sync failed (is Ollama running?)'}
-                </span>
-              </>
+          </div>
+
+          {/* Save to a topic / knowledge graph */}
+          <div className="flex items-center gap-3 flex-wrap border-y border-border py-3">
+            <span className="text-sm text-text">Save to topic:</span>
+            {topics.length === 0 ? (
+              <button
+                onClick={() => navigate('/topics')}
+                className="text-sm text-accent hover:underline"
+              >
+                add a topic first →
+              </button>
+            ) : (
+              <select
+                value={assignedTopic}
+                onChange={handlePick}
+                className="bg-surface border border-border px-2 py-1.5 text-sm text-text focus:outline-none focus:border-border-hover capitalize"
+              >
+                <option value="">Choose a topic…</option>
+                {topics.map((t) => (
+                  <option key={t.name} value={t.name}>{t.name}</option>
+                ))}
+              </select>
+            )}
+            {syncStatus === 'syncing' && (
+              <span className="text-xs text-accent">◌ syncing to Obsidian…</span>
+            )}
+            {syncStatus === 'done' && assignedTopic && (
+              <span className="text-xs text-accent">✓ saved to {assignedTopic}</span>
+            )}
+            {syncStatus === 'skipped' && assignedTopic && (
+              <span className="text-xs text-muted">saved to history — connect a vault to extract concepts</span>
+            )}
+            {syncStatus === 'error' && (
+              <span className="text-xs text-red-400">extraction failed (is Ollama running?)</span>
             )}
           </div>
+
           {video.description && (
             <p className="text-sm text-muted leading-relaxed whitespace-pre-line border-t border-border pt-4 mt-4">
               {video.description}
