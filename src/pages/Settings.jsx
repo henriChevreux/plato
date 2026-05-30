@@ -9,6 +9,7 @@ import { useBanner, DEFAULT_BANNER } from '../hooks/useBanner'
 import { useTheme } from '../hooks/useTheme'
 import { useOllama } from '../hooks/useOllama'
 import { useVault } from '../hooks/useVault'
+import { sampleCount, clearPreferences, exportJSONL } from '../lib/preferences'
 
 const THRESHOLD_LABELS = {
   0: 'Off — show everything',
@@ -44,6 +45,25 @@ export function Settings() {
 
   const [keyInput, setKeyInput] = useState(apiKey)
   const [saved, setSaved] = useState(false)
+  const [prefCount, setPrefCount] = useState(() => sampleCount())
+
+  function handleResetPrefs() {
+    clearPreferences()
+    setPrefCount(0)
+    refresh()
+  }
+
+  function handleExportPrefs() {
+    const blob = new Blob([exportJSONL()], { type: 'application/x-ndjson' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = 'plato-preferences.jsonl'
+    document.body.appendChild(a)
+    a.click()
+    a.remove()
+    URL.revokeObjectURL(url)
+  }
 
   function handleSaveKey(e) {
     e.preventDefault()
@@ -381,6 +401,43 @@ export function Settings() {
             Connect Obsidian vault
           </button>
         )}
+      </section>
+
+      {/* Preference Learning */}
+      <section className="space-y-4">
+        <h2 className="text-xs text-muted uppercase tracking-widest">Preference Learning</h2>
+        <p className="text-sm text-muted">
+          Your 👍/👎 feedback trains a small on-device model that nudges feed ranking toward the
+          kind of videos you like. Everything stays in your browser.
+        </p>
+        <p className="text-sm text-text">
+          {prefCount === 0
+            ? 'No feedback yet — thumb a few videos up or down to start.'
+            : `${prefCount} rated video${prefCount === 1 ? '' : 's'} collected.`}
+          {prefCount > 0 && prefCount < 4 && (
+            <span className="text-muted"> (rate a few more, across both 👍 and 👎, for ranking to shift)</span>
+          )}
+        </p>
+        <div className="flex items-center gap-3 flex-wrap">
+          <button
+            onClick={handleExportPrefs}
+            disabled={prefCount === 0}
+            className="px-4 py-2 border border-border text-muted text-sm hover:border-border-hover hover:text-text transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            Export preference pairs (JSONL)
+          </button>
+          <button
+            onClick={handleResetPrefs}
+            disabled={prefCount === 0}
+            className="text-xs text-muted hover:text-error transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            reset learned preferences
+          </button>
+        </div>
+        <p className="text-xs text-subtle">
+          Export downloads your rated videos as JSONL — the upgrade path to a future DPO fine-tune of a
+          small local model, without building training infrastructure now.
+        </p>
       </section>
 
       {/* Quota info */}
