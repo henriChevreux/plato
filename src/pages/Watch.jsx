@@ -3,6 +3,7 @@ import { useParams, useLocation, useNavigate } from 'react-router-dom'
 import { recordWatch } from '../lib/storage'
 import { vaultPermission } from '../lib/vault'
 import { extractConcepts, writeConceptNotes } from '../lib/concepts'
+import { recordFeedback, removeFeedback, getLabel, LABEL_UP, LABEL_DOWN } from '../lib/preferences'
 import { useTopics } from '../hooks/useTopics'
 
 export function Watch() {
@@ -16,6 +17,7 @@ export function Watch() {
   const { topics } = useTopics()
 
   const [assignedTopic, setAssignedTopic] = useState(navTopic || '')
+  const [label, setLabel] = useState(() => getLabel(videoId))
   // 'idle' | 'syncing' | 'done' | 'error' | 'skipped'
   const [syncStatus, setSyncStatus] = useState('idle')
   const recordedFor = useRef(null)
@@ -79,6 +81,17 @@ export function Watch() {
     if (name) syncToTopic(name)
   }
 
+  function handleThumb(value) {
+    if (label === value) {
+      removeFeedback(videoId)
+      setLabel(null)
+    } else {
+      const featureVector = video?.features ?? video?.score?.features ?? null
+      recordFeedback({ videoId, featureVector, llmScore: video?.llmScore ?? null, label: value })
+      setLabel(value)
+    }
+  }
+
   return (
     <div className="p-6">
       <button
@@ -115,6 +128,33 @@ export function Watch() {
                 <span>{video.duration}</span>
               </>
             )}
+          </div>
+
+          {/* Feedback — trains the on-device preference model */}
+          <div className="flex items-center gap-3">
+            <span className="text-sm text-text">Helpful?</span>
+            <button
+              onClick={() => handleThumb(LABEL_UP)}
+              title="More like this"
+              className={`px-3 py-1.5 border text-sm transition-colors ${
+                label === LABEL_UP
+                  ? 'border-emerald-400 text-emerald-400'
+                  : 'border-border text-muted hover:text-text hover:border-border-hover'
+              }`}
+            >
+              👍
+            </button>
+            <button
+              onClick={() => handleThumb(LABEL_DOWN)}
+              title="Less like this"
+              className={`px-3 py-1.5 border text-sm transition-colors ${
+                label === LABEL_DOWN
+                  ? 'border-red-400 text-red-400'
+                  : 'border-border text-muted hover:text-text hover:border-border-hover'
+              }`}
+            >
+              👎
+            </button>
           </div>
 
           {/* Save to a topic / knowledge graph */}

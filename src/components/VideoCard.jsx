@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useSaved } from '../hooks/useSaved'
 import { useBlocklist } from '../hooks/useBlocklist'
 import { slopLabel } from '../lib/slop'
+import { recordFeedback, removeFeedback, getLabel, LABEL_UP, LABEL_DOWN } from '../lib/preferences'
 
 function timeAgo(dateStr) {
   const diff = Date.now() - new Date(dateStr).getTime()
@@ -30,6 +31,7 @@ export function VideoCard({ video, onBlocked, topic }) {
   const { blockChannel } = useBlocklist()
   const [actionsVisible, setActionsVisible] = useState(false)
   const [blocked, setBlocked] = useState(false)
+  const [prefLabel, setPrefLabel] = useState(() => getLabel(video.videoId))
 
   if (blocked) return null
 
@@ -48,6 +50,23 @@ export function VideoCard({ video, onBlocked, topic }) {
     e.preventDefault()
     e.stopPropagation()
     saved ? unsaveVideo(video.videoId) : saveVideo(video)
+  }
+
+  function handleThumb(value, e) {
+    e.preventDefault()
+    e.stopPropagation()
+    if (prefLabel === value) {
+      removeFeedback(video.videoId)
+      setPrefLabel(null)
+    } else {
+      recordFeedback({
+        videoId: video.videoId,
+        featureVector: video.features ?? null,
+        llmScore: video.llmScore ?? null,
+        label: value,
+      })
+      setPrefLabel(value)
+    }
   }
 
   return (
@@ -106,6 +125,24 @@ export function VideoCard({ video, onBlocked, topic }) {
         }`}
       >
         <button
+          onClick={(e) => handleThumb(LABEL_UP, e)}
+          title="More like this"
+          className={`px-3 py-2 text-xs border-r border-border transition-colors ${
+            prefLabel === LABEL_UP ? 'text-emerald-400' : 'text-muted hover:text-text'
+          }`}
+        >
+          👍
+        </button>
+        <button
+          onClick={(e) => handleThumb(LABEL_DOWN, e)}
+          title="Less like this"
+          className={`px-3 py-2 text-xs border-r border-border transition-colors ${
+            prefLabel === LABEL_DOWN ? 'text-red-400' : 'text-muted hover:text-text'
+          }`}
+        >
+          👎
+        </button>
+        <button
           onClick={handleSave}
           className="flex-1 py-2 text-xs text-muted hover:text-text transition-colors border-r border-border"
         >
@@ -115,7 +152,7 @@ export function VideoCard({ video, onBlocked, topic }) {
           onClick={handleBlock}
           className="flex-1 py-2 text-xs text-muted hover:text-error transition-colors"
         >
-          block channel
+          block
         </button>
       </div>
     </div>
