@@ -10,6 +10,8 @@ const KEYS = {
   OLLAMA_URL: 'plato_ollama_url',
   OLLAMA_MODEL: 'plato_ollama_model',
   AI_RERANK_ENABLED: 'plato_ai_rerank',
+  WATCH_HISTORY: 'plato_watch_history',
+  VAULT_NAME: 'plato_vault_name',
 }
 
 export function getApiKey() {
@@ -97,4 +99,28 @@ export function getAiRerankEnabled() {
 }
 export function setAiRerankEnabled(v) {
   localStorage.setItem(KEYS.AI_RERANK_ENABLED, String(v))
+}
+
+// Watch history: [{ videoId, title, channelTitle, topic, level, watchedAt }]
+export function getWatchHistory() {
+  try { return JSON.parse(localStorage.getItem(KEYS.WATCH_HISTORY)) || [] } catch { return [] }
+}
+export function setWatchHistory(list) {
+  localStorage.setItem(KEYS.WATCH_HISTORY, JSON.stringify(list))
+}
+export function recordWatch(entry) {
+  const list = getWatchHistory()
+  // De-dupe by videoId; keep most recent watch at the front
+  const filtered = list.filter((e) => e.videoId !== entry.videoId)
+  filtered.unshift({ ...entry, watchedAt: new Date().toISOString() })
+  setWatchHistory(filtered.slice(0, 500))
+}
+
+// Connected vault display name (the handle itself lives in IndexedDB via idb.js)
+export function getVaultName() {
+  return localStorage.getItem(KEYS.VAULT_NAME) || ''
+}
+export function setVaultName(name) {
+  if (name) localStorage.setItem(KEYS.VAULT_NAME, name)
+  else localStorage.removeItem(KEYS.VAULT_NAME)
 }

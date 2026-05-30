@@ -3,6 +3,21 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { searchByTopic } from '../lib/youtube'
 import { scoreVideo } from '../lib/scoring'
 import { rerank } from '../lib/reranker'
+import { vaultPermission } from '../lib/vault'
+import { summarizeKnown } from '../lib/graph'
+
+// Combine known-concept summaries across topics into one learner-context string
+// for the reranker. Returns '' if no vault is connected or nothing is known yet.
+async function buildGraphSummary(topics) {
+  try {
+    if ((await vaultPermission()) !== 'granted') return ''
+    const names = topics.map((t) => (typeof t === 'string' ? t : t.name))
+    const parts = await Promise.all(names.map((n) => summarizeKnown(n)))
+    return parts.filter(Boolean).join(' ')
+  } catch {
+    return ''
+  }
+}
 
 function topicsHash(topics) {
   return topics
@@ -69,43 +84,55 @@ export function useFeed(topics, apiKey, blocklist = [], threshold = 4, minDurati
   // Run async re-rank pass when feed data arrives and AI is enabled
   useEffect(() => {
     if (!query.data || !aiEnabled) return
+    let cancelled = false
 
-    const cachePrefix = `plato_llm_v2_${hash}_${level}`
-    const fromCache = {}
-    const needsScore = []
+    ;(async () => {
+      // Pull what the learner already knows (from the Obsidian graph) so the
+      // judge reasons about knowledge fit; '' when no vault is connected.
+      const graphSummary = await buildGraphSummary(topics)
+      if (cancelled) return
 
-    for (const { videos } of query.data) {
-      for (const v of videos) {
-        const cached = sessionStorage.getItem(`${cachePrefix}_${v.videoId}`)
-        if (cached !== null) {
-          fromCache[v.videoId] = Number(cached)
-        } else {
-          needsScore.push(v)
+      // Key the LLM cache by graph state too, so scores refresh as the graph grows.
+      const gsig = graphSummary ? `_g${graphSummary.length}` : ''
+      const cachePrefix = `plato_llm_v2_${hash}_${level}${gsig}`
+      const fromCache = {}
+      const needsScore = []
+
+      for (const { videos } of query.data) {
+        for (const v of videos) {
+          const cached = sessionStorage.getItem(`${cachePrefix}_${v.videoId}`)
+          if (cached !== null) {
+            fromCache[v.videoId] = Number(cached)
+          } else {
+            needsScore.push(v)
+          }
         }
       }
-    }
 
-    if (Object.keys(fromCache).length > 0) {
-      setLlmScores((prev) => ({ ...prev, ...fromCache }))
-    }
+      if (Object.keys(fromCache).length > 0) {
+        setLlmScores((prev) => ({ ...prev, ...fromCache }))
+      }
 
-    if (needsScore.length === 0) return
+      if (needsScore.length === 0) return
 
-    setProgress({ scored: 0, total: needsScore.length })
+      setProgress({ scored: 0, total: needsScore.length })
 
-    rerank(needsScore, {
-      topics,
-      level,
-      onProgress: ({ scored, total }) => setProgress({ scored, total }),
-    }).then((results) => {
-      if (!results) return
+      const results = await rerank(needsScore, {
+        topics,
+        level,
+        graphSummary,
+        onProgress: ({ scored, total }) => { if (!cancelled) setProgress({ scored, total }) },
+      })
+      if (cancelled || !results) return
       const fresh = {}
       for (const r of results) {
         fresh[r.videoId] = r.score
         sessionStorage.setItem(`${cachePrefix}_${r.videoId}`, String(r.score))
       }
       setLlmScores((prev) => ({ ...prev, ...fresh }))
-    })
+    })()
+
+    return () => { cancelled = true }
   }, [query.data, aiEnabled, hash, level]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const blockSet = new Set(blocklist)

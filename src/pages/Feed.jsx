@@ -57,7 +57,7 @@ function TopicSection({ topic, videos }) {
       <div className="flex gap-4 overflow-x-auto pb-3 -mx-8 px-8">
         {videos.map((video) => (
           <div key={video.videoId} className="shrink-0 w-72">
-            <VideoCard video={video} />
+            <VideoCard video={video} topic={topic} />
           </div>
         ))}
       </div>
