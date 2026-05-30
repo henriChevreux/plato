@@ -1,10 +1,12 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { searchByTopic } from '../lib/youtube'
 import { scoreVideo } from '../lib/scoring'
 import { rerank } from '../lib/reranker'
 import { vaultPermission } from '../lib/vault'
 import { summarizeKnown } from '../lib/graph'
+import { trainModel, predict } from '../lib/preferences'
+import { getPreferences } from '../lib/storage'
 
 // Combine known-concept summaries across topics into one learner-context string
 // for the reranker. Returns '' if no vault is connected or nothing is known yet.
@@ -138,6 +140,23 @@ export function useFeed(topics, apiKey, blocklist = [], threshold = 4, minDurati
   const blockSet = new Set(blocklist)
   const hasLlmScores = aiEnabled && Object.keys(llmScores).length > 0
 
+  // Train the on-device preference model from 👍/👎 feedback. Retrains when the
+  // feed reloads/refreshes (dataUpdatedAt) or topics change — so refreshing the
+  // feed visibly shifts ranking after new feedback. null when there isn't enough.
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- retrain on feed refresh/topic change
+  const prefModel = useMemo(() => trainModel(getPreferences()), [hash, query.dataUpdatedAt])
+
+  // Final ranking blends LLM score (or static score as the base) with the
+  // preference prediction. A neutral 0.5 prediction (no model) leaves order untouched.
+  function rankScore(v) {
+    const llm = hasLlmScores ? (llmScores[v.videoId] ?? null) : (v.llmScore ?? null)
+    const base = llm != null ? llm : v.score
+    const boost = prefModel
+      ? (predict(prefModel, v.features, llm) - 0.5) * (llm != null ? 40 : 10)
+      : 0
+    return base + boost
+  }
+
   let sections = null
   let filteredCount = 0
 
@@ -151,17 +170,11 @@ export function useFeed(topics, apiKey, blocklist = [], threshold = 4, minDurati
       )
       filteredCount += videos.length - clean.length
 
-      let sorted
-      if (hasLlmScores) {
+      let sorted = clean
+      if (hasLlmScores || prefModel) {
         sorted = clean
-          .map((v) => ({ ...v, llmScore: llmScores[v.videoId] ?? null }))
-          .sort((a, b) => {
-            const aScore = a.llmScore ?? -1
-            const bScore = b.llmScore ?? -1
-            return bScore - aScore
-          })
-      } else {
-        sorted = clean
+          .map((v) => ({ ...v, llmScore: hasLlmScores ? (llmScores[v.videoId] ?? null) : (v.llmScore ?? null) }))
+          .sort((a, b) => rankScore(b) - rankScore(a))
       }
 
       return { topic, videos: sorted }
