@@ -128,7 +128,9 @@ export function VideoCard({ video, onBlocked, topic }) {
           onClick={(e) => handleThumb(LABEL_UP, e)}
           title="More like this"
           className={`px-3 py-2 text-xs border-r border-border transition-colors ${
-            prefLabel === LABEL_UP ? 'text-emerald-400' : 'text-muted hover:text-text'
+            prefLabel === LABEL_UP
+              ? 'bg-emerald-500/25 text-emerald-300'
+              : 'text-muted hover:text-text grayscale opacity-70 hover:opacity-100 hover:grayscale-0'
           }`}
         >
           👍
@@ -137,7 +139,9 @@ export function VideoCard({ video, onBlocked, topic }) {
           onClick={(e) => handleThumb(LABEL_DOWN, e)}
           title="Less like this"
           className={`px-3 py-2 text-xs border-r border-border transition-colors ${
-            prefLabel === LABEL_DOWN ? 'text-red-400' : 'text-muted hover:text-text'
+            prefLabel === LABEL_DOWN
+              ? 'bg-red-500/25 text-red-300'
+              : 'text-muted hover:text-text grayscale opacity-70 hover:opacity-100 hover:grayscale-0'
           }`}
         >
           👎
