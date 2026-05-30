@@ -12,6 +12,7 @@ const KEYS = {
   AI_RERANK_ENABLED: 'plato_ai_rerank',
   WATCH_HISTORY: 'plato_watch_history',
   VAULT_NAME: 'plato_vault_name',
+  PREFERENCES: 'plato_preferences',
 }
 
 export function getApiKey() {
@@ -126,4 +127,12 @@ export function getVaultName() {
 export function setVaultName(name) {
   if (name) localStorage.setItem(KEYS.VAULT_NAME, name)
   else localStorage.removeItem(KEYS.VAULT_NAME)
+}
+
+// Preference samples: [{ videoId, featureVector, llmScore, label, ts }]
+export function getPreferences() {
+  try { return JSON.parse(localStorage.getItem(KEYS.PREFERENCES)) || [] } catch { return [] }
+}
+export function setPreferences(list) {
+  localStorage.setItem(KEYS.PREFERENCES, JSON.stringify(list))
 }
