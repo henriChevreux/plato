@@ -6,6 +6,7 @@ import { Search } from './pages/Search'
 import { Saved } from './pages/Saved'
 import { Topics } from './pages/Topics'
 import { Settings } from './pages/Settings'
+import { Knowledge } from './pages/Knowledge'
 import { Watch } from './pages/Watch'
 import { useTheme } from './hooks/useTheme'
 
@@ -31,6 +32,7 @@ export default function App() {
               <Route path="/search" element={<Search />} />
               <Route path="/saved" element={<Saved />} />
               <Route path="/topics" element={<Topics />} />
+              <Route path="/knowledge" element={<Knowledge />} />
               <Route path="/settings" element={<Settings />} />
               <Route path="/watch/:videoId" element={<Watch />} />
               <Route path="*" element={<Navigate to="/" replace />} />

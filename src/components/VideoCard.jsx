@@ -22,7 +22,9 @@ const qualityDot = {
   slop: 'bg-red-500',
 }
 
-export function VideoCard({ video, onBlocked }) {
+export function VideoCard({ video, onBlocked, topic }) {
+  const topicName = typeof topic === 'string' ? topic : topic?.name
+  const topicLevel = typeof topic === 'string' ? 'intermediate' : (topic?.level || 'intermediate')
   const navigate = useNavigate()
   const { isSaved, saveVideo, unsaveVideo } = useSaved()
   const { blockChannel } = useBlocklist()
@@ -56,7 +58,7 @@ export function VideoCard({ video, onBlocked }) {
     >
       <div
         className="cursor-pointer"
-        onClick={() => navigate(`/watch/${video.videoId}`, { state: { video } })}
+        onClick={() => navigate(`/watch/${video.videoId}`, { state: { video, topic: topicName, level: topicLevel } })}
       >
         <div className="relative overflow-hidden aspect-video bg-subtle">
           {video.thumbnail ? (

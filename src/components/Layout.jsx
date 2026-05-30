@@ -6,6 +6,7 @@ const navItems = [
   { to: '/search', label: 'Search' },
   { to: '/saved', label: 'Saved' },
   { to: '/topics', label: 'Topics' },
+  { to: '/knowledge', label: 'Knowledge' },
   { to: '/settings', label: 'Settings' },
 ]
 

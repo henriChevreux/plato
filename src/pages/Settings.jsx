@@ -8,6 +8,7 @@ import { useMinDuration } from '../hooks/useMinDuration'
 import { useBanner, DEFAULT_BANNER } from '../hooks/useBanner'
 import { useTheme } from '../hooks/useTheme'
 import { useOllama } from '../hooks/useOllama'
+import { useVault } from '../hooks/useVault'
 
 const THRESHOLD_LABELS = {
   0: 'Off — show everything',
@@ -31,7 +32,12 @@ export function Settings() {
   const { bannerSrc, isCustom, uploadBanner, resetBanner } = useBanner()
   const { theme, setTheme } = useTheme()
   const { url: ollamaUrl, saveUrl: saveOllamaUrl, model: ollamaModel, saveModel: saveOllamaModel, aiEnabled, toggleAi, status: ollamaStatus } = useOllama()
+  const { supported: vaultSupported, status: vaultStatus, name: vaultName, connect: connectVault, reconnect: reconnectVault, disconnect: disconnectVault } = useVault()
   const refresh = useRefreshFeed()
+
+  async function handleConnectVault() {
+    try { await connectVault() } catch { /* user cancelled picker */ }
+  }
 
   const [ollamaUrlInput, setOllamaUrlInput] = useState(ollamaUrl)
   const [ollamaModelInput, setOllamaModelInput] = useState(ollamaModel)
@@ -312,6 +318,68 @@ export function Settings() {
           <p className="text-xs text-muted">
             Available models: {ollamaStatus.models.join(', ')}
           </p>
+        )}
+      </section>
+
+      {/* Obsidian Knowledge Graph */}
+      <section className="space-y-4">
+        <div className="flex items-center gap-2">
+          <h2 className="text-xs text-muted uppercase tracking-widest">Obsidian Knowledge Graph</h2>
+          <span
+            className={`w-2 h-2 rounded-full ${
+              vaultStatus === 'granted'
+                ? 'bg-emerald-400'
+                : vaultStatus === 'unsupported'
+                ? 'bg-red-400'
+                : 'bg-muted'
+            }`}
+          />
+        </div>
+        <p className="text-sm text-muted">
+          Connect an Obsidian vault folder. As you watch videos (with AI enabled), Plato extracts
+          the concepts and writes linked notes into <span className="font-mono">Plato/</span>, building
+          a graph of what you&apos;ve learned. View it on the Knowledge page or in Obsidian.
+        </p>
+
+        {!vaultSupported ? (
+          <div className="text-xs text-muted border border-border px-3 py-2">
+            Your browser doesn&apos;t support the File System Access API. Use Chrome, Edge, or another
+            Chromium-based browser to connect a vault.
+          </div>
+        ) : vaultStatus === 'granted' ? (
+          <div className="flex items-center gap-3">
+            <span className="text-sm text-text">
+              Connected: <span className="font-mono">{vaultName}</span>
+            </span>
+            <button
+              onClick={disconnectVault}
+              className="text-xs text-muted hover:text-text transition-colors"
+            >
+              disconnect
+            </button>
+          </div>
+        ) : vaultStatus === 'prompt' || vaultStatus === 'denied' ? (
+          <div className="flex items-center gap-3">
+            <button
+              onClick={reconnectVault}
+              className="px-4 py-2 border border-accent text-accent text-sm hover:bg-accent hover:text-bg transition-colors"
+            >
+              Reconnect &quot;{vaultName}&quot;
+            </button>
+            <button
+              onClick={disconnectVault}
+              className="text-xs text-muted hover:text-text transition-colors"
+            >
+              forget
+            </button>
+          </div>
+        ) : (
+          <button
+            onClick={handleConnectVault}
+            className="px-4 py-2 border border-accent text-accent text-sm hover:bg-accent hover:text-bg transition-colors"
+          >
+            Connect Obsidian vault
+          </button>
         )}
       </section>
 

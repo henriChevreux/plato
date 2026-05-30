@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { searchByTopic } from '../lib/youtube'
 import { scoreVideo } from '../lib/scoring'
@@ -9,7 +9,7 @@ import { useBlocklist } from '../hooks/useBlocklist'
 import { useSlopThreshold } from '../hooks/useSlopThreshold'
 import { VideoCard } from '../components/VideoCard'
 import { EmptyState } from '../components/EmptyState'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 
 function SearchSkeleton() {
   return (
@@ -30,10 +30,17 @@ export function Search() {
   const { threshold } = useSlopThreshold()
   const navigate = useNavigate()
 
-  const [query, setQuery] = useState('')
-  const [submitted, setSubmitted] = useState('')
+  const [searchParams] = useSearchParams()
+  const [query, setQuery] = useState(() => searchParams.get('q') || '')
+  const [submitted, setSubmitted] = useState(() => searchParams.get('q') || '')
   const [showFiltered, setShowFiltered] = useState(false)
   const inputRef = useRef(null)
+
+  // Re-run when arriving via a ?q= deep link (e.g. "Find videos" from Knowledge)
+  useEffect(() => {
+    const q = searchParams.get('q')
+    if (q) { setQuery(q); setSubmitted(q) }
+  }, [searchParams])
 
   const { data: rawResults, isLoading, isError, error } = useQuery({
     queryKey: ['search', submitted],
