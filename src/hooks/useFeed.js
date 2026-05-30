@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { searchByTopic } from '../lib/youtube'
 import { scoreVideo } from '../lib/scoring'
@@ -74,19 +74,30 @@ export function useFeed(topics, apiKey, blocklist = [], threshold = 4, minDurati
 
   const [llmScores, setLlmScores] = useState({})
   const [progress, setProgress] = useState({ scored: 0, total: 0 })
+  const [reranking, setReranking] = useState(false)
+  const [rerankNonce, setRerankNonce] = useState(0)
+  const lastRunNonce = useRef(0)
   const hash = topicsHash(topics)
   const level = topics.find((t) => t?.level && t.level !== 'intermediate')?.level || 'intermediate'
 
-  // Clear LLM scores when topics change or feed data refreshes
+  // Explicit trigger: AI re-ranking only calls the LLM when the user asks for it.
+  const runRerank = useCallback(() => setRerankNonce((n) => n + 1), [])
+
+  // Clear LLM scores when topics change or the feed refreshes. Also marks the
+  // current trigger as consumed so a refresh never auto-fires the LLM.
   useEffect(() => {
     setLlmScores({})
     setProgress({ scored: 0, total: 0 })
-  }, [hash, query.dataUpdatedAt])
+    setReranking(false)
+    lastRunNonce.current = rerankNonce
+  }, [hash, query.dataUpdatedAt]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Run async re-rank pass when feed data arrives and AI is enabled
+  // Apply cached LLM scores (free) whenever data changes; call the LLM ONLY when
+  // the user clicked "Rank with AI" (rerankNonce advanced past the last run).
   useEffect(() => {
     if (!query.data || !aiEnabled) return
     let cancelled = false
+    const shouldRun = rerankNonce > lastRunNonce.current
 
     ;(async () => {
       // Pull what the learner already knows (from the Obsidian graph) so the
@@ -115,8 +126,12 @@ export function useFeed(topics, apiKey, blocklist = [], threshold = 4, minDurati
         setLlmScores((prev) => ({ ...prev, ...fromCache }))
       }
 
-      if (needsScore.length === 0) return
-
+      if (!shouldRun || needsScore.length === 0) {
+        if (shouldRun) lastRunNonce.current = rerankNonce
+        return
+      }
+      lastRunNonce.current = rerankNonce
+      setReranking(true)
       setProgress({ scored: 0, total: needsScore.length })
 
       const results = await rerank(needsScore, {
@@ -125,17 +140,20 @@ export function useFeed(topics, apiKey, blocklist = [], threshold = 4, minDurati
         graphSummary,
         onProgress: ({ scored, total }) => { if (!cancelled) setProgress({ scored, total }) },
       })
-      if (cancelled || !results) return
-      const fresh = {}
-      for (const r of results) {
-        fresh[r.videoId] = r.score
-        sessionStorage.setItem(`${cachePrefix}_${r.videoId}`, String(r.score))
+      if (cancelled) return
+      if (results) {
+        const fresh = {}
+        for (const r of results) {
+          fresh[r.videoId] = r.score
+          sessionStorage.setItem(`${cachePrefix}_${r.videoId}`, String(r.score))
+        }
+        setLlmScores((prev) => ({ ...prev, ...fresh }))
       }
-      setLlmScores((prev) => ({ ...prev, ...fresh }))
+      setReranking(false)
     })()
 
     return () => { cancelled = true }
-  }, [query.data, aiEnabled, hash, level]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [query.data, aiEnabled, hash, level, rerankNonce]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const blockSet = new Set(blocklist)
   const hasLlmScores = aiEnabled && Object.keys(llmScores).length > 0
@@ -183,10 +201,11 @@ export function useFeed(topics, apiKey, blocklist = [], threshold = 4, minDurati
 
   let aiStatus = 'idle'
   if (aiEnabled && query.data) {
-    aiStatus = hasLlmScores ? 'done' : 'scoring'
+    if (reranking) aiStatus = 'scoring'
+    else if (hasLlmScores) aiStatus = 'done'
   }
 
-  return { ...query, data: sections, filteredCount, aiStatus, progress }
+  return { ...query, data: sections, filteredCount, aiStatus, progress, runRerank }
 }
 
 export function useRefreshFeed() {

@@ -72,7 +72,7 @@ export function Feed() {
   const { threshold } = useSlopThreshold()
   const { minDuration } = useMinDuration()
   const [aiEnabled] = useState(() => getAiRerankEnabled())
-  const { data: sections, isLoading, isError, error, filteredCount, aiStatus, progress } = useFeed(topics, apiKey, blocklist, threshold, minDuration, aiEnabled)
+  const { data: sections, isLoading, isError, error, filteredCount, aiStatus, progress, runRerank } = useFeed(topics, apiKey, blocklist, threshold, minDuration, aiEnabled)
   const refresh = useRefreshFeed()
 
   const [elapsed, setElapsed] = useState(0)
@@ -134,13 +134,18 @@ export function Feed() {
           <p className="text-xs text-muted">
             {filteredCount > 0 ? `${filteredCount} videos filtered` : 'curated feed'}
           </p>
-          {aiStatus === 'scoring' && (
+          {aiEnabled && aiStatus === 'scoring' && (
             <span className="text-xs text-muted animate-pulse">
-              AI scoring… {progress.total > 0 ? `${progress.scored}/${progress.total}` : `${elapsed}s`}
+              AI ranking… {progress.total > 0 ? `${progress.scored}/${progress.total}` : `${elapsed}s`}
             </span>
           )}
-          {aiStatus === 'done' && (
-            <span className="text-xs text-accent">AI scoring done</span>
+          {aiEnabled && aiStatus !== 'scoring' && !isLoading && (
+            <button
+              onClick={runRerank}
+              className="text-xs text-accent hover:underline"
+            >
+              {aiStatus === 'done' ? 're-rank with AI' : 'rank with AI'}
+            </button>
           )}
         </div>
         <button
